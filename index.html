@@ -1494,21 +1494,7 @@
       const canvas = $("weatherCanvas");
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
-      const state = { width: 0, height: 0, dpr: 1, rain: [], drops: [], petals: [] };
-
-      function createDrop() {
-        const size = 2.6 + Math.random() * 8.8;
-        return {
-          x: Math.random() * state.width,
-          y: Math.random() * state.height,
-          rx: size * (0.62 + Math.random() * 0.46),
-          ry: size * (0.78 + Math.random() * 0.72),
-          rot: -0.35 + Math.random() * 0.7,
-          seed: Math.random() * Math.PI * 2,
-          alpha: 0.18 + Math.random() * 0.22,
-          rim: 0.18 + Math.random() * 0.2
-        };
-      }
+      const state = { width: 0, height: 0, dpr: 1, rain: [], petals: [] };
 
       function resize() {
         state.dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1521,7 +1507,6 @@
         ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
         const isMobile = state.width < 720;
         const rainCount = isMobile ? 58 : 118;
-        const dropCount = isMobile ? 22 : 46;
         state.rain = Array.from({ length: rainCount }, () => ({
           x: Math.random() * state.width,
           y: Math.random() * state.height,
@@ -1530,7 +1515,6 @@
           drift: -1.4 + Math.random() * 0.8,
           alpha: 0.12 + Math.random() * 0.18
         }));
-        state.drops = Array.from({ length: dropCount }, () => createDrop());
       }
 
       function spawnPetal() {
@@ -1577,48 +1561,6 @@
           ctx.moveTo(rain.x, rain.y);
           ctx.lineTo(rain.x + rain.drift * 5, rain.y + rain.len);
           ctx.stroke();
-        }
-
-        for (const drop of state.drops) {
-          const glint = 0.82 + Math.sin(now / 1800 + drop.seed) * 0.18;
-          const grad = ctx.createRadialGradient(
-            drop.x - drop.rx * 0.28,
-            drop.y - drop.ry * 0.36,
-            0,
-            drop.x,
-            drop.y,
-            Math.max(drop.rx, drop.ry) * 1.2
-          );
-          grad.addColorStop(0, `rgba(255,255,255,${(drop.alpha + 0.18) * glint})`);
-          grad.addColorStop(0.24, `rgba(238,250,255,${drop.alpha * 0.72})`);
-          grad.addColorStop(0.62, `rgba(158,201,215,${drop.alpha * 0.32})`);
-          grad.addColorStop(1, `rgba(33,72,92,${drop.rim})`);
-
-          ctx.save();
-          ctx.translate(drop.x, drop.y);
-          ctx.rotate(drop.rot);
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.ellipse(0, 0, drop.rx, drop.ry, 0, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.strokeStyle = `rgba(255,255,255,${drop.alpha * 0.72})`;
-          ctx.lineWidth = 0.7;
-          ctx.beginPath();
-          ctx.ellipse(0, 0, drop.rx * 0.92, drop.ry * 0.92, 0, Math.PI * 0.08, Math.PI * 1.18);
-          ctx.stroke();
-
-          ctx.fillStyle = `rgba(255,255,255,${(drop.alpha + 0.22) * glint})`;
-          ctx.beginPath();
-          ctx.ellipse(-drop.rx * 0.28, -drop.ry * 0.34, Math.max(0.7, drop.rx * 0.18), Math.max(1, drop.ry * 0.25), -0.55, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.strokeStyle = `rgba(224,247,255,${drop.alpha * 0.5})`;
-          ctx.lineWidth = 0.9;
-          ctx.beginPath();
-          ctx.arc(drop.rx * 0.18, drop.ry * 0.2, Math.min(drop.rx, drop.ry) * 0.62, 0.45, 1.75);
-          ctx.stroke();
-          ctx.restore();
         }
 
         if (Math.random() < (state.width < 720 ? 0.008 : 0.014)) spawnPetal();
