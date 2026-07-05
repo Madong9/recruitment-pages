@@ -120,6 +120,124 @@
       opacity: 0.72;
     }
 
+    .white-dog {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 7;
+      width: 96px;
+      height: 62px;
+      pointer-events: none;
+      opacity: 0.92;
+      transform: translate3d(var(--dog-x, 18vw), var(--dog-y, 72vh), 0) scaleX(var(--dog-face, 1));
+      transform-origin: 50% 80%;
+      filter: drop-shadow(0 8px 10px rgba(35, 52, 62, 0.22));
+    }
+
+    .white-dog::before {
+      content: "";
+      position: absolute;
+      left: 18px;
+      top: 26px;
+      width: 56px;
+      height: 29px;
+      border-radius: 50% 48% 46% 42%;
+      background:
+        radial-gradient(circle at 24% 28%, rgba(255,255,255,0.96) 0 18%, transparent 19%),
+        linear-gradient(180deg, rgba(255,255,255,0.98), rgba(235,241,236,0.96));
+      border: 1px solid rgba(115, 138, 135, 0.22);
+    }
+
+    .white-dog::after {
+      content: "";
+      position: absolute;
+      left: 64px;
+      top: 17px;
+      width: 27px;
+      height: 25px;
+      border-radius: 55% 48% 52% 45%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(236,242,238,0.98));
+      border: 1px solid rgba(115, 138, 135, 0.22);
+      transform: rotate(var(--dog-look, 0deg));
+      transform-origin: 22% 78%;
+    }
+
+    .dog-ear,
+    .dog-tail,
+    .dog-leg,
+    .dog-eye,
+    .dog-nose {
+      position: absolute;
+      display: block;
+      pointer-events: none;
+    }
+
+    .dog-ear {
+      left: 65px;
+      top: 15px;
+      z-index: 1;
+      width: 13px;
+      height: 18px;
+      border-radius: 70% 30% 70% 45%;
+      background: rgba(232, 238, 233, 0.98);
+      transform: rotate(-18deg);
+      transform-origin: 80% 20%;
+      animation: dogEar 2.4s ease-in-out infinite;
+    }
+
+    .dog-tail {
+      left: 7px;
+      top: 27px;
+      width: 22px;
+      height: 18px;
+      border-top: 5px solid rgba(248, 250, 246, 0.98);
+      border-radius: 80% 0 0 0;
+      transform-origin: 92% 65%;
+      animation: dogTail 1.1s ease-in-out infinite;
+    }
+
+    .dog-eye {
+      left: 79px;
+      top: 25px;
+      z-index: 2;
+      width: 3.6px;
+      height: 3.6px;
+      border-radius: 50%;
+      background: rgba(35, 50, 54, 0.82);
+      transform: translate(var(--dog-eye-x, 0), var(--dog-eye-y, 0));
+    }
+
+    .dog-nose {
+      left: 88px;
+      top: 30px;
+      z-index: 2;
+      width: 5px;
+      height: 4px;
+      border-radius: 55% 45% 60% 45%;
+      background: rgba(35, 50, 54, 0.82);
+    }
+
+    .dog-leg {
+      top: 49px;
+      width: 8px;
+      height: 12px;
+      border-radius: 0 0 7px 7px;
+      background: rgba(238, 244, 239, 0.98);
+      transform-origin: 50% 0;
+      animation: dogIdlePaw 1.8s ease-in-out infinite;
+    }
+
+    .dog-leg.front { left: 58px; }
+    .dog-leg.back { left: 28px; animation-delay: 220ms; }
+
+    .white-dog.is-chasing .dog-leg {
+      animation: dogRunPaw 360ms ease-in-out infinite;
+    }
+
+    .white-dog.is-playing .dog-tail {
+      animation-duration: 520ms;
+    }
+
     .cursor-scene {
       position: fixed;
       left: 0;
@@ -240,6 +358,26 @@
     @keyframes birdFlap {
       from { top: 5px; }
       to { top: 3px; }
+    }
+
+    @keyframes dogTail {
+      0%, 100% { transform: rotate(-24deg); }
+      50% { transform: rotate(18deg); }
+    }
+
+    @keyframes dogEar {
+      0%, 100% { transform: rotate(-18deg); }
+      55% { transform: rotate(-5deg); }
+    }
+
+    @keyframes dogIdlePaw {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(5deg); }
+    }
+
+    @keyframes dogRunPaw {
+      0%, 100% { transform: rotate(-16deg) translateY(0); }
+      50% { transform: rotate(18deg) translateY(-1px); }
     }
 
     button,
@@ -720,6 +858,7 @@
     @media (prefers-reduced-motion: reduce) {
       .cursor-scene,
       .bird,
+      .white-dog,
       .weather-canvas {
         display: none;
       }
@@ -1065,6 +1204,14 @@
 </head>
 <body>
   <canvas id="weatherCanvas" class="weather-canvas" aria-hidden="true"></canvas>
+  <div id="whiteDog" class="white-dog is-playing" aria-hidden="true">
+    <span class="dog-tail"></span>
+    <span class="dog-ear"></span>
+    <span class="dog-eye"></span>
+    <span class="dog-nose"></span>
+    <span class="dog-leg front"></span>
+    <span class="dog-leg back"></span>
+  </div>
   <div class="cursor-scene" aria-hidden="true">
     <div class="kite"></div>
   </div>
@@ -1403,6 +1550,7 @@
       const root = document.documentElement;
       const hero = document.querySelector(".hero");
       const birds = [...document.querySelectorAll(".bird")];
+      const dogNode = $("whiteDog");
       const mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, active: false };
       const birdState = birds.map((_, index) => ({
         x: mouse.x - 70 - index * 14,
@@ -1414,6 +1562,16 @@
         speed: 0.022 + index * 0.004,
         scale: 0.72 + index * 0.06
       }));
+      const dog = {
+        x: Math.min(window.innerWidth - 130, Math.max(18, window.innerWidth * 0.22)),
+        y: Math.min(window.innerHeight - 86, Math.max(110, window.innerHeight * 0.72)),
+        tx: window.innerWidth * 0.28,
+        ty: window.innerHeight * 0.7,
+        face: 1,
+        mode: "playing",
+        nextDecision: 0,
+        phase: Math.random() * Math.PI * 2
+      };
 
       function pickBirdTarget(bird, index, now) {
         const radius = 46 + (index % 3) * 26 + Math.random() * 32;
@@ -1442,7 +1600,72 @@
         requestAnimationFrame(animateBirds);
       }
 
+      function chooseDogTarget(now) {
+        const margin = window.innerWidth < 720 ? 28 : 42;
+        const top = window.innerWidth < 720 ? 120 : 140;
+        dog.tx = margin + Math.random() * Math.max(20, window.innerWidth - margin * 2 - 96);
+        dog.ty = top + Math.random() * Math.max(40, window.innerHeight - top - 106);
+        dog.mode = Math.random() < 0.38 ? "playing" : "wandering";
+        dog.nextDecision = now + 2200 + Math.random() * 3600;
+      }
+
+      function setDogMode(mode) {
+        if (!dogNode) return;
+        dog.mode = mode;
+        dogNode.classList.toggle("is-chasing", mode === "chasing");
+        dogNode.classList.toggle("is-playing", mode === "playing");
+      }
+
+      function animateDog(now) {
+        if (!dogNode) return;
+        const dx = mouse.x - dog.x;
+        const dy = mouse.y - dog.y;
+        const dist = Math.hypot(dx, dy);
+        let speed = 0.012;
+
+        if (mouse.active && dist < 210) {
+          setDogMode("chasing");
+          const lag = window.innerWidth < 720 ? 38 : 58;
+          dog.tx = mouse.x - Math.sign(dx || dog.face) * lag;
+          dog.ty = mouse.y + 24;
+          speed = 0.052;
+        } else if (mouse.active && dist < 560) {
+          setDogMode("watching");
+          dog.tx = dog.x;
+          dog.ty = dog.y;
+          speed = 0.006;
+        } else {
+          if (now > dog.nextDecision) chooseDogTarget(now);
+          setDogMode(dog.mode === "playing" ? "playing" : "wandering");
+          speed = dog.mode === "playing" ? 0.01 : 0.016;
+        }
+
+        const maxX = window.innerWidth - 106;
+        const maxY = window.innerHeight - 76;
+        dog.tx = Math.min(maxX, Math.max(12, dog.tx));
+        dog.ty = Math.min(maxY, Math.max(92, dog.ty));
+        dog.x += (dog.tx - dog.x) * speed;
+        dog.y += (dog.ty - dog.y) * speed;
+
+        const lookX = mouse.active ? Math.max(-2.4, Math.min(2.4, dx / 90)) : Math.sin(now / 1200 + dog.phase) * 1.4;
+        const lookY = mouse.active ? Math.max(-1.5, Math.min(1.5, dy / 120)) : Math.cos(now / 1500 + dog.phase) * 0.8;
+        if (Math.abs(dx) > 18) dog.face = dx >= 0 ? 1 : -1;
+        const bob = dog.mode === "chasing" ? Math.sin(now / 90) * 2.4 : dog.mode === "playing" ? Math.sin(now / 360 + dog.phase) * 1.2 : 0;
+        root.style.setProperty("--dog-x", `${dog.x.toFixed(1)}px`);
+        root.style.setProperty("--dog-y", `${(dog.y + bob).toFixed(1)}px`);
+        root.style.setProperty("--dog-face", dog.face);
+        root.style.setProperty("--dog-look", `${Math.max(-10, Math.min(10, dy / 18)).toFixed(1)}deg`);
+        root.style.setProperty("--dog-eye-x", `${lookX.toFixed(1)}px`);
+        root.style.setProperty("--dog-eye-y", `${lookY.toFixed(1)}px`);
+      }
+
+      function animateScene(now) {
+        animateDog(now);
+        requestAnimationFrame(animateScene);
+      }
+
       requestAnimationFrame(animateBirds);
+      requestAnimationFrame(animateScene);
 
       window.addEventListener("pointermove", (event) => {
         mouse.x = event.clientX;
