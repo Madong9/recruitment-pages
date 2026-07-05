@@ -1479,18 +1479,17 @@
       const ctx = canvas.getContext("2d");
       const state = { width: 0, height: 0, dpr: 1, rain: [], drops: [], petals: [] };
 
-      function createDrop(y = Math.random() * state.height) {
+      function createDrop() {
+        const size = 2.6 + Math.random() * 8.8;
         return {
           x: Math.random() * state.width,
-          y,
-          vy: 0,
-          mass: 0.45 + Math.random() * 0.9,
-          stuck: 30 + Math.random() * 160,
+          y: Math.random() * state.height,
+          rx: size * (0.62 + Math.random() * 0.46),
+          ry: size * (0.78 + Math.random() * 0.72),
+          rot: -0.35 + Math.random() * 0.7,
           seed: Math.random() * Math.PI * 2,
-          trail: [],
-          alpha: 0.16 + Math.random() * 0.18,
-          thickness: 1.1 + Math.random() * 1.2,
-          mergeAt: 60 + Math.random() * 180
+          alpha: 0.18 + Math.random() * 0.22,
+          rim: 0.18 + Math.random() * 0.2
         };
       }
 
@@ -1505,7 +1504,7 @@
         ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
         const isMobile = state.width < 720;
         const rainCount = isMobile ? 58 : 118;
-        const dropCount = isMobile ? 6 : 14;
+        const dropCount = isMobile ? 22 : 46;
         state.rain = Array.from({ length: rainCount }, () => ({
           x: Math.random() * state.width,
           y: Math.random() * state.height,
@@ -1514,9 +1513,7 @@
           drift: -1.4 + Math.random() * 0.8,
           alpha: 0.12 + Math.random() * 0.18
         }));
-        state.drops = Array.from({ length: dropCount }, () => ({
-          ...createDrop()
-        }));
+        state.drops = Array.from({ length: dropCount }, () => createDrop());
       }
 
       function spawnPetal() {
@@ -1566,56 +1563,45 @@
         }
 
         for (const drop of state.drops) {
-          drop.mass += 0.0025;
-          drop.mergeAt -= 1;
-          if (drop.mergeAt < 0 && Math.random() < 0.018) {
-            drop.mass += 0.5 + Math.random() * 0.8;
-            drop.vy += 1.15 + Math.random() * 1.4;
-            drop.mergeAt = 90 + Math.random() * 220;
-          }
+          const glint = 0.82 + Math.sin(now / 1800 + drop.seed) * 0.18;
+          const grad = ctx.createRadialGradient(
+            drop.x - drop.rx * 0.28,
+            drop.y - drop.ry * 0.36,
+            0,
+            drop.x,
+            drop.y,
+            Math.max(drop.rx, drop.ry) * 1.2
+          );
+          grad.addColorStop(0, `rgba(255,255,255,${(drop.alpha + 0.18) * glint})`);
+          grad.addColorStop(0.24, `rgba(238,250,255,${drop.alpha * 0.72})`);
+          grad.addColorStop(0.62, `rgba(158,201,215,${drop.alpha * 0.32})`);
+          grad.addColorStop(1, `rgba(33,72,92,${drop.rim})`);
 
-          if (drop.stuck > 0) {
-            drop.stuck -= drop.mass * 0.35;
-            if (Math.random() < 0.01) drop.stuck -= 18;
-          } else {
-            const gravity = 0.014 + drop.mass * 0.014;
-            drop.vy = Math.min(drop.vy + gravity, 3.6 + drop.mass * 1.1);
-            drop.y += drop.vy;
-            drop.x += Math.sin(drop.y * 0.018 + drop.seed) * 0.26 + Math.sin(now / 1300 + drop.seed) * 0.08;
-          }
-
-          const headX = drop.x + Math.sin(drop.y * 0.026 + drop.seed) * (1.8 + drop.mass);
-          drop.trail.unshift({ x: headX, y: drop.y });
-          const maxTrail = Math.min(44, 16 + Math.floor(drop.mass * 12));
-          if (drop.trail.length > maxTrail) drop.trail.length = maxTrail;
-
-          if (drop.y > state.height + 40) {
-            Object.assign(drop, createDrop(-20 - Math.random() * 120));
-            continue;
-          }
-
-          for (let i = drop.trail.length - 1; i > 0; i -= 1) {
-            const a = drop.trail[i];
-            const b = drop.trail[i - 1];
-            const fade = 1 - i / drop.trail.length;
-            ctx.strokeStyle = `rgba(225, 247, 255, ${drop.alpha * fade * 0.72})`;
-            ctx.lineWidth = Math.max(0.45, drop.thickness * fade);
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.quadraticCurveTo((a.x + b.x) / 2 + Math.sin(i + drop.seed) * 1.8, (a.y + b.y) / 2, b.x, b.y);
-            ctx.stroke();
-          }
-
-          const bead = Math.min(5.8, 2.4 + drop.mass * 1.3);
-          const squash = drop.stuck > 0 ? 0.82 : 1 + Math.min(drop.vy, 4) * 0.12;
-          ctx.fillStyle = `rgba(235, 250, 255, ${drop.alpha + 0.08})`;
+          ctx.save();
+          ctx.translate(drop.x, drop.y);
+          ctx.rotate(drop.rot);
+          ctx.fillStyle = grad;
           ctx.beginPath();
-          ctx.ellipse(headX, drop.y, bead * 0.72, bead * squash, 0.06, 0, Math.PI * 2);
+          ctx.ellipse(0, 0, drop.rx, drop.ry, 0, 0, Math.PI * 2);
           ctx.fill();
-          ctx.fillStyle = `rgba(255, 255, 255, ${drop.alpha + 0.18})`;
+
+          ctx.strokeStyle = `rgba(255,255,255,${drop.alpha * 0.72})`;
+          ctx.lineWidth = 0.7;
           ctx.beginPath();
-          ctx.ellipse(headX - bead * 0.22, drop.y - bead * 0.3, bead * 0.16, bead * 0.26, -0.4, 0, Math.PI * 2);
+          ctx.ellipse(0, 0, drop.rx * 0.92, drop.ry * 0.92, 0, Math.PI * 0.08, Math.PI * 1.18);
+          ctx.stroke();
+
+          ctx.fillStyle = `rgba(255,255,255,${(drop.alpha + 0.22) * glint})`;
+          ctx.beginPath();
+          ctx.ellipse(-drop.rx * 0.28, -drop.ry * 0.34, Math.max(0.7, drop.rx * 0.18), Math.max(1, drop.ry * 0.25), -0.55, 0, Math.PI * 2);
           ctx.fill();
+
+          ctx.strokeStyle = `rgba(224,247,255,${drop.alpha * 0.5})`;
+          ctx.lineWidth = 0.9;
+          ctx.beginPath();
+          ctx.arc(drop.rx * 0.18, drop.ry * 0.2, Math.min(drop.rx, drop.ry) * 0.62, 0.45, 1.75);
+          ctx.stroke();
+          ctx.restore();
         }
 
         if (Math.random() < (state.width < 720 ? 0.008 : 0.014)) spawnPetal();
