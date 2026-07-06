@@ -1004,6 +1004,8 @@
     }
 
     dialog {
+      position: fixed;
+      inset: 50% auto auto 50%;
       width: min(780px, calc(100vw - 32px));
       max-height: calc(100vh - 56px);
       border: 1px solid rgba(255, 255, 255, 0.84);
@@ -1015,11 +1017,26 @@
       backdrop-filter: blur(18px);
       color: var(--ink);
       box-shadow: 0 28px 80px rgba(39, 55, 77, 0.24);
+      z-index: 42;
+      transform: translate(-50%, -50%);
     }
 
-    dialog::backdrop {
+    dialog:not([open]) {
+      display: none;
+    }
+
+    .detail-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 41;
+      display: none;
       background: rgba(47, 70, 80, 0.36);
       backdrop-filter: blur(4px);
+      pointer-events: auto;
+    }
+
+    body.detail-open .detail-backdrop {
+      display: block;
     }
 
     .dialog-head {
@@ -1332,6 +1349,7 @@
     </section>
   </main>
 
+  <div id="detailBackdrop" class="detail-backdrop" aria-hidden="true"></div>
   <dialog id="detailDialog">
     <div class="dialog-head">
       <h2 id="detailTitle"></h2>
@@ -1534,7 +1552,8 @@
         </dl>
         <p>${esc(job.summary || job.content_text || "当前来源只提供列表信息，请打开原网页查看完整内容。")}</p>
       `;
-      $("detailDialog").showModal();
+      document.body.classList.add("detail-open");
+      if (!$("detailDialog").open) $("detailDialog").show();
     }
 
     function debounce(fn, wait = 250) {
@@ -1849,7 +1868,16 @@
         state.page += 1;
         loadJobs();
       });
-      $("closeDialog").addEventListener("click", () => $("detailDialog").close());
+      const closeDetail = () => {
+        $("detailDialog").close();
+        document.body.classList.remove("detail-open");
+      };
+      $("closeDialog").addEventListener("click", closeDetail);
+      $("detailBackdrop").addEventListener("click", closeDetail);
+      $("detailDialog").addEventListener("close", () => document.body.classList.remove("detail-open"));
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && $("detailDialog").open) closeDetail();
+      });
     }
 
     bindEvents();
