@@ -110,6 +110,17 @@
       cursor: none !important;
     }
 
+    .gravity-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      width: 100vw;
+      height: 100dvh;
+      pointer-events: none;
+      opacity: 0.78;
+      filter: saturate(1.08);
+    }
+
     .weather-canvas {
       position: fixed;
       inset: 0;
@@ -387,6 +398,8 @@
     }
 
     main {
+      position: relative;
+      z-index: 2;
       width: min(1440px, calc(100vw - 40px));
       margin: 0 auto;
       padding: 30px 0 42px;
@@ -875,6 +888,7 @@
       .cursor-scene,
       .bird,
       .white-dog,
+      .gravity-canvas,
       .weather-canvas {
         display: none;
       }
@@ -1175,6 +1189,10 @@
     }
 
     @media (max-width: 720px) {
+      .gravity-canvas {
+        opacity: 0.62;
+      }
+
       body.has-school-bg {
         min-height: 100vh;
       }
@@ -1236,6 +1254,7 @@
   </style>
 </head>
 <body>
+  <canvas id="gravityCanvas" class="gravity-canvas" aria-hidden="true"></canvas>
   <canvas id="weatherCanvas" class="weather-canvas" aria-hidden="true"></canvas>
   <div id="whiteDog" class="white-dog is-playing" aria-hidden="true">
     <span class="dog-tail"></span>
@@ -1823,6 +1842,155 @@
       });
     }
 
+    function bindGravityEffect() {
+      const canvas = $("gravityCanvas");
+      if (!canvas || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      const ctx = canvas.getContext("2d", { alpha: true });
+      if (!ctx) return;
+
+      const palette = [
+        [66, 133, 244],
+        [52, 168, 83],
+        [251, 188, 4],
+        [234, 67, 53],
+        [112, 86, 214],
+        [46, 181, 196]
+      ];
+      const state = {
+        width: 0,
+        height: 0,
+        dpr: 1,
+        centerX: 0,
+        centerY: 0,
+        targetX: 0,
+        targetY: 0,
+        pointerX: -1000,
+        pointerY: -1000,
+        pointerActive: false,
+        baseRadius: 0,
+        particles: []
+      };
+
+      function createParticles(count) {
+        state.particles = Array.from({ length: count }, (_, index) => {
+          const band = index % 4;
+          return {
+            angle: Math.random() * Math.PI * 2,
+            radiusOffset: (Math.random() - 0.5) * (band === 0 ? 0.34 : 0.2),
+            bandScale: [1, 0.82, 1.13, 0.94][band],
+            speed: (0.000018 + Math.random() * 0.000026) * (band % 2 ? -1 : 1),
+            phase: Math.random() * Math.PI * 2,
+            wobble: 0.018 + Math.random() * 0.052,
+            size: 0.65 + Math.random() * 1.65,
+            alpha: 0.28 + Math.random() * 0.52,
+            color: palette[(index + Math.floor(Math.random() * 3)) % palette.length]
+          };
+        });
+      }
+
+      function resize() {
+        state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        state.width = window.innerWidth;
+        state.height = window.innerHeight;
+        canvas.width = Math.floor(state.width * state.dpr);
+        canvas.height = Math.floor(state.height * state.dpr);
+        canvas.style.width = `${state.width}px`;
+        canvas.style.height = `${state.height}px`;
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+
+        const mobile = state.width < 720;
+        state.centerX = state.width * 0.5;
+        state.centerY = mobile ? state.height * 0.38 : state.height * 0.46;
+        state.targetX = state.centerX;
+        state.targetY = state.centerY;
+        state.baseRadius = mobile
+          ? Math.min(state.width * 0.43, state.height * 0.28)
+          : Math.min(state.width * 0.31, state.height * 0.38);
+        createParticles(mobile ? 104 : state.width > 1280 ? 230 : 172);
+      }
+
+      function drawOrbitalGuides(now) {
+        const pulse = 1 + Math.sin(now * 0.00034) * 0.016;
+        ctx.save();
+        ctx.translate(state.centerX, state.centerY);
+        ctx.rotate(Math.sin(now * 0.00012) * 0.08);
+        for (let i = 0; i < 3; i += 1) {
+          ctx.beginPath();
+          ctx.ellipse(
+            0,
+            0,
+            state.baseRadius * pulse * (0.82 + i * 0.155),
+            state.baseRadius * pulse * (0.57 + i * 0.105),
+            i * 0.54,
+            0,
+            Math.PI * 2
+          );
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.09 - i * 0.018})`;
+          ctx.lineWidth = 0.75;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function frame(now) {
+        ctx.clearRect(0, 0, state.width, state.height);
+        const homeX = state.width * 0.5;
+        const homeY = state.width < 720 ? state.height * 0.38 : state.height * 0.46;
+        state.targetX = homeX + (state.pointerActive ? (state.pointerX - homeX) * 0.024 : 0);
+        state.targetY = homeY + (state.pointerActive ? (state.pointerY - homeY) * 0.018 : 0);
+        state.centerX += (state.targetX - state.centerX) * 0.035;
+        state.centerY += (state.targetY - state.centerY) * 0.035;
+        drawOrbitalGuides(now);
+
+        const pulse = 1 + Math.sin(now * 0.00042) * 0.026;
+        for (const particle of state.particles) {
+          const angle = particle.angle + now * particle.speed;
+          const wave = Math.sin(now * 0.00068 + particle.phase) * particle.wobble;
+          const radius = state.baseRadius * particle.bandScale * pulse
+            * (1 + particle.radiusOffset + wave);
+          const depth = (Math.sin(angle + particle.phase * 0.18) + 1) * 0.5;
+          const tilt = 0.68 + particle.bandScale * 0.035;
+          let x = state.centerX + Math.cos(angle) * radius;
+          let y = state.centerY + Math.sin(angle) * radius * tilt
+            + Math.sin(now * 0.00055 + particle.phase) * 6;
+
+          if (state.pointerActive) {
+            const dx = x - state.pointerX;
+            const dy = y - state.pointerY;
+            const distance = Math.hypot(dx, dy);
+            const influence = 132;
+            if (distance > 0 && distance < influence) {
+              const force = (1 - distance / influence) ** 2 * 25;
+              x += (dx / distance) * force;
+              y += (dy / distance) * force;
+            }
+          }
+
+          const [red, green, blue] = particle.color;
+          const alpha = particle.alpha * (0.5 + depth * 0.5);
+          const size = particle.size * (0.68 + depth * 0.58);
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+          ctx.fill();
+        }
+
+        requestAnimationFrame(frame);
+      }
+
+      window.addEventListener("resize", resize, { passive: true });
+      window.addEventListener("pointermove", (event) => {
+        state.pointerX = event.clientX;
+        state.pointerY = event.clientY;
+        state.pointerActive = true;
+      }, { passive: true });
+      window.addEventListener("pointerleave", () => {
+        state.pointerActive = false;
+      });
+      resize();
+      requestAnimationFrame(frame);
+    }
+
     function bindWeatherEffect() {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       const canvas = $("weatherCanvas");
@@ -2017,6 +2185,7 @@
 
     bindEvents();
     bindVisualEffects();
+    bindGravityEffect();
     bindWeatherEffect();
     loadMeta();
     loadJobs();
