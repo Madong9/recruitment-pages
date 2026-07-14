@@ -469,6 +469,10 @@
       font-size: 14px;
     }
 
+    .hero-note span {
+      display: block;
+    }
+
     .summary {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -1258,8 +1262,9 @@
           <p class="subtitle">把清华、北大、复旦、上海交大、浙大、中国科大、南大的招聘与实习信息整理成清晰的求职看板，适合每天查看秋招、提前批和暑期实习机会。</p>
         </div>
         <aside class="hero-note">
-          <strong>每日更新</strong>
-          这是静态快照，GitHub Pages 会由系统定时任务每日重新发布。下载后的离线文件不会自动更新。
+          <strong id="updateHeadline">正在读取更新状态</strong>
+          <span id="updateSummary">系统定时任务每天 08:30 自动采集并发布。</span>
+          <span>点击职位卡片可打开详情与学校就业网原文。</span>
         </aside>
       </div>
     </section>
@@ -1390,12 +1395,53 @@
 
     function fmtDate(value) {
       if (!value) return "未知日期";
+      if (value.includes("T")) return shanghaiDateKey(value) || value.slice(0, 10);
       return value.slice(0, 10);
     }
 
     function fmtDateTime(value) {
       if (!value) return "未知时间";
-      return value.replace("T", " ").replace(/\.\d+/, "").slice(0, 19);
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value.replace("T", " ").replace(/\.\d+/, "").slice(0, 19);
+      }
+      return new Intl.DateTimeFormat("zh-CN", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+      }).format(date).replaceAll("/", "-");
+    }
+
+    function shanghaiDateKey(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(date);
+      const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+      return `${values.year}-${values.month}-${values.day}`;
+    }
+
+    function renderUpdateSummary(meta) {
+      const runs = meta.daily_updates || [];
+      const latest = runs[0];
+      if (!latest) return;
+      const latestDay = shanghaiDateKey(latest.finished_at);
+      const addedToday = runs
+        .filter((run) => shanghaiDateKey(run.finished_at) === latestDay)
+        .reduce((total, run) => total + Number(run.jobs_added || 0), 0);
+      $("updateHeadline").textContent = `最近采集：${fmtDateTime(latest.finished_at)}`;
+      $("updateSummary").textContent = latest.status === "ok"
+        ? `今日新增 ${addedToday} 条 · 数据源 ${latest.sources_ok}/${latest.sources_total} 成功 · 已发布`
+        : `本轮${statusText(latest.status)} · 数据源 ${latest.sources_ok}/${latest.sources_total} 成功 · 等待自动重试`;
     }
 
     function statusText(status) {
@@ -1484,6 +1530,7 @@
       $("dbTotal").textContent = meta.count;
       fillSelect($("schoolSelect"), meta.schools, "全部学校");
       fillSelect($("categorySelect"), meta.categories, "全部类型");
+      renderUpdateSummary(meta);
       $("dailyUpdateList").innerHTML = (meta.daily_updates || []).map((run) => `
         <div class="run ${esc(run.status)}">
           <strong>${esc(fmtDateTime(run.finished_at))} · ${esc(statusText(run.status))}</strong>
